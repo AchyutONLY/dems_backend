@@ -12,6 +12,7 @@ class AuditLog(Base):
     Timestamp = Column(TIMESTAMP(timezone=True),nullable=False,server_default=func.now())
     UserID = Column(Integer, ForeignKey("users.UserID", ondelete="SET NULL"), nullable=True)
     EventType = Column(String,nullable=False)
+    Details = Column(Text,nullable=True)
 
 class Case(Base):
     __tablename__ = "cases"
@@ -20,7 +21,6 @@ class Case(Base):
     Title = Column(String, nullable=False)
     Type = Column(String, nullable=False)
     Status = Column(String, nullable=False)
-    AssignedOfficerID = Column(Integer,ForeignKey("users.UserID", ondelete="SET NULL"),nullable=True)
     DateOpened = Column(TIMESTAMP,nullable=False,server_default=func.now())
     DateClosed = Column(TIMESTAMP,nullable=True)
     Description = Column(Text, nullable=True)
@@ -58,3 +58,11 @@ class User(Base):
     Status=Column(String,default="ACTIVE")
     LastLogin=Column(TIMESTAMP(timezone=True))
     Password=Column(String,nullable=False)
+
+
+class CaseAssignment(Base):
+    __tablename__ = "case_assignments"
+
+    id = Column(Integer, primary_key=True)
+    CaseID = Column(Integer, ForeignKey("cases.CaseID", ondelete="CASCADE"))
+    AssignedOfficerId = Column(Integer, ForeignKey("users.UserID", ondelete="CASCADE"))

@@ -5,7 +5,7 @@ class AuditBase(BaseModel):
     Timestamp: datetime | None = None
     UserID: int
     EventType: str
-    Signature: str | None = None
+    Details: str
 
 class AuditCreate(AuditBase):
     pass

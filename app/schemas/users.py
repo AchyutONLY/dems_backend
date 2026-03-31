@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-
+from typing import Optional
 class UserBase(BaseModel):
     Name: str
     Role: str
@@ -14,11 +14,11 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    Name: str | None = None
-    Role: str | None = None
-    Contact: str | None = None
-    Status: str | None = None
-    Password: str | None = None
+    Name: Optional[str] = None
+    Role: Optional[str] = None
+    Contact: Optional[str] = None
+    Status: Optional[str] = None
+    Password: Optional[str] = None
 
 
 class UserResponse(UserBase):
@@ -35,3 +35,4 @@ class UserResponseCreate(BaseModel):
     model_config = {
         "from_attributes": True
     }
+

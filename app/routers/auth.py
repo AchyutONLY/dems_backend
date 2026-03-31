@@ -5,6 +5,11 @@ from .. import database,models,utils,oauth2
 from datetime import datetime,timezone
 from app.schemas import auth
 from sqlalchemy.exc import SQLAlchemyError
+from app.schemas.is_active import IsActive
+from app.schemas.audit_event import AuditEvent
+from app.schemas.audit import AuditCreate
+from app.utils import create_log
+
 router = APIRouter(tags=['Authentication'])
 
 
@@ -25,7 +30,7 @@ def login(user_credentials: OAuth2PasswordRequestForm = Depends(),db: Session = 
     if user.Status != "ACTIVE":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"{user.Role} {user.Name} is INACTIVE"
+            detail=f"{user.Role} {user.Name} is {IsActive.inactive}"
         )
     access_token = oauth2.create_access_token(
         data={"BadgeNumber": user.BadgeNumber}
@@ -34,6 +39,10 @@ def login(user_credentials: OAuth2PasswordRequestForm = Depends(),db: Session = 
     try:
         db.commit()
         db.refresh(user)
+        
+        Detail_Logs = f"User BadgeNumber={user.BadgeNumber} logged in successfully"
+        log_entry = AuditCreate(UserID=user.UserID, EventType=AuditEvent.read, Details=Detail_Logs)
+        create_log(log_entry, db)
         return {
             "access_token": access_token,
             "token_type": "bearer"
