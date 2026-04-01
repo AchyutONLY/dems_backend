@@ -19,7 +19,7 @@ import shutil
 import os
 import uuid
 
-UPLOAD_DIR = "uploads/evidences"
+UPLOAD_DIR = "/evidences"
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=EvidenceResponse)
 def add_evidence(

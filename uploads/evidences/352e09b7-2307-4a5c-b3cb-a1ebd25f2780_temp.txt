@@ -1,5 +1,0 @@
-wed:
-1)dbms backend completion
-2)lab reading
-3)2 leetcode que - gdsc
-4) os reading
