@@ -21,5 +21,7 @@ class EvidenceUpdate(BaseModel):
 class EvidenceResponse(EvidenceBase):
     EvidenceID: int
 
+    FilePath: str | None = None
+
     class Config:
         from_attributes = True

@@ -10,6 +10,7 @@ from app.schemas.audit_event import AuditEvent
 from app.schemas.audit import AuditCreate
 from app.utils import create_log
 
+
 router = APIRouter(prefix="/custody", tags=["Custody"])
 
 
@@ -24,12 +25,22 @@ def add_custody(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Not authorized to add custody records")
 
+    search_query = db.query(CustodyRecords).filter(CustodyRecords.EvidenceID == data.EvidenceID,
+                                                   CustodyRecords.ActingOfficerID == data.ActingOfficerID).first()
+    
+    if search_query:
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail = "Custody Already Exist for Modification go to modify option"
+        )
+
+
     new_record = CustodyRecords(**data.model_dump())
     db.add(new_record)
     db.commit()
     db.refresh(new_record)
 
-    Detail_Logs = f"New Custody Record created: RecordID={new_record.RecordID}, Person={new_record.PersonName}"
+    Detail_Logs = f"New Custody Record created: RecordID={new_record.RecordID}"
     log_entry = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.create, Details=Detail_Logs)
     create_log(log_entry, db)
     return new_record
@@ -41,14 +52,14 @@ def list_custody(
     current_user=Depends(oauth2.get_current_user),
     limit: int = 10,
     skip: int = 0,
-    search: str = None
+    ActingOfficerID: int = None
 ):
     query = db.query(CustodyRecords)
 
-    if search:
-        query = query.filter(CustodyRecords.PersonName.ilike(f"%{search}%"))
+    if ActingOfficerID:
+        query = query.filter(CustodyRecords.ActingOfficerID == ActingOfficerID)
 
-    Detail_Logs = f"Viewed All User Details with limit:{limit},offset:{skip},search:{search}"
+    Detail_Logs = f"Viewed All User Details with limit:{limit},offset:{skip},Acting Officer ID:{ActingOfficerID}"
     logs = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.read, Details=Detail_Logs)
     create_log(logs, db)
     return query.offset(skip).limit(limit).all()
@@ -117,7 +128,7 @@ def delete_record(
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
     
-    Detail_Logs = f"Deleted Custody RecordID={record.RecordID}, Person={record.PersonName}"
+    Detail_Logs = f"Deleted Custody RecordID={record.RecordID}"
     log_entry = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.delete, Details=Detail_Logs)
     create_log(log_entry, db)
     db.delete(record)

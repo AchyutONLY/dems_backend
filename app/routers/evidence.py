@@ -14,39 +14,121 @@ from app.utils import create_log
 
 router = APIRouter(prefix="/evidence", tags=["Evidence"])
 
+from fastapi import File, UploadFile, Form
+import shutil
+import os
+import uuid
+
+UPLOAD_DIR = "uploads/evidences"
+
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=EvidenceResponse)
 def add_evidence(
-    data: EvidenceCreate, 
+    CaseID: int = Form(...),
+    Description: str = Form(None),
+    EvidenceType: str = Form(...),
+    SourceOrigin: str = Form(...),
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(oauth2.get_current_user)
 ):
-    case = db.query(Case).filter(Case.CaseID == data.CaseID).first()
+    case = db.query(Case).filter(Case.CaseID == CaseID).first()
     if not case:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Case not found"
-        )
+        raise HTTPException(status_code=404, detail="Case not found")
 
     if current_user.Role == RoleEnum.admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admins cannot interfere in evidence handling"
-        )
+        raise HTTPException(status_code=403, detail="Admins cannot interfere in evidence handling")
 
     new_evidence = EvidenceItems(
-        **data.model_dump(),
+        CaseID=CaseID,
+        Description=Description,
+        EvidenceType=EvidenceType,
+        SourceOrigin=SourceOrigin,
         SubmittingOfficerID=current_user.UserID
     )
+
     db.add(new_evidence)
+    db.commit()         
+    db.refresh(new_evidence)
+
+   
+    case_folder = os.path.join(UPLOAD_DIR, f"case_{new_evidence.CaseID}")
+    os.makedirs(case_folder, exist_ok=True)
+
+    # ✅ Extract file extension
+    _, ext = os.path.splitext(file.filename)
+
+    # ✅ Create file name as per your format
+    file_name = f"case_id{new_evidence.CaseID}_evidence_id{new_evidence.EvidenceID}{ext}"
+
+    file_path = os.path.join(case_folder, file_name)
+
+    # ✅ Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # ✅ Update DB with file path
+    new_evidence.FilePath = file_path
     db.commit()
     db.refresh(new_evidence)
+
+
+
     Detail_Logs = (
-    f"New Evidence Created: EvidenceID={new_evidence.EvidenceID}, "
-    f"CaseID={new_evidence.CaseID}, SubmittingOfficerID={current_user.UserID}"
+        f"New Evidence Created: EvidenceID={new_evidence.EvidenceID}, "
+        f"CaseID={new_evidence.CaseID}, File={file_path}"
     )
     log_entry = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.create, Details=Detail_Logs)
     create_log(log_entry, db)
+
     return new_evidence
+
+from fastapi.responses import FileResponse
+
+@router.get("/{case_id}/{evidence_id}/download")
+def download_evidence(
+    case_id: int,
+    evidence_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(oauth2.get_current_user)
+):
+    ev = db.query(EvidenceItems).filter(
+    EvidenceItems.CaseID == case_id,
+    EvidenceItems.EvidenceID == evidence_id).first()
+
+    if not ev:
+        raise HTTPException(status_code=404, detail="Evidence not found")
+
+    case = db.query(Case).filter(Case.CaseID == case_id).first()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    if current_user.Role == RoleEnum.officer:
+        assigned = db.query(CaseAssignment).filter(
+            CaseAssignment.CaseID == case_id,
+            CaseAssignment.AssignedOfficerId == current_user.UserID
+        ).first()
+
+        if not assigned:
+            raise HTTPException(status_code=403, detail="Not your case")
+
+    if not ev.FilePath or not os.path.exists(ev.FilePath):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    Detail_Logs = (
+        f"Downloaded EvidenceID={evidence_id}, CaseID={case_id}"
+    )
+    log_entry = AuditCreate(
+        UserID=current_user.UserID,
+        EventType=AuditEvent.read,
+        Details=Detail_Logs
+    )
+    create_log(log_entry, db)
+
+    return FileResponse(
+        path=ev.FilePath,
+        filename=os.path.basename(ev.FilePath),
+        media_type="application/octet-stream"
+    )
 
 
 @router.get("/case/{case_id}", response_model=list[EvidenceResponse])

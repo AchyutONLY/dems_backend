@@ -48,6 +48,8 @@ class EvidenceItems(Base):
     DateCollected = Column(TIMESTAMP(timezone=True),nullable=False,server_default=func.now())
     SubmittingOfficerID = Column(Integer,ForeignKey("users.UserID", ondelete="SET NULL"),nullable=True)
 
+    FilePath = Column(String, nullable=True)
+
 class User(Base):
     __tablename__="users"
     UserID=Column(Integer,primary_key=True,index=True)
