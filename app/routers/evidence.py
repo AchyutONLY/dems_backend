@@ -19,7 +19,7 @@ import shutil
 import os
 import uuid
 
-UPLOAD_DIR = "/evidences"
+UPLOAD_DIR = "evidences"
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=EvidenceResponse)
 def add_evidence(
@@ -54,19 +54,15 @@ def add_evidence(
     case_folder = os.path.join(UPLOAD_DIR, f"case_{new_evidence.CaseID}")
     os.makedirs(case_folder, exist_ok=True)
 
-    # ✅ Extract file extension
     _, ext = os.path.splitext(file.filename)
 
-    # ✅ Create file name as per your format
     file_name = f"case_id{new_evidence.CaseID}_evidence_id{new_evidence.EvidenceID}{ext}"
 
     file_path = os.path.join(case_folder, file_name)
 
-    # ✅ Save file
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # ✅ Update DB with file path
     new_evidence.FilePath = file_path
     db.commit()
     db.refresh(new_evidence)
@@ -232,21 +228,46 @@ def update_evidence(evidence_id: int, data: EvidenceUpdate, db: Session = Depend
     db.refresh(ev)
     return ev
 
-@router.delete("/{evidence_id}",status_code=status.HTTP_204_NO_CONTENT)
-def delete_evidence(evidence_id: int, db: Session = Depends(get_db),current_user:User = Depends(oauth2.get_current_user)):
+import os
+
+@router.delete("/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_evidence(
+    evidence_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(oauth2.get_current_user)
+):
     if current_user.Role != RoleEnum.admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Officers/Inspector cannot delete a Evidence"
         )
-    ev = db.query(EvidenceItems).filter(EvidenceItems.EvidenceID == evidence_id).first()
+
+    ev = db.query(EvidenceItems).filter(
+        EvidenceItems.EvidenceID == evidence_id
+    ).first()
+
     if not ev:
         raise HTTPException(status_code=404, detail="Evidence not found")
+
+    if ev.FilePath and os.path.exists(ev.FilePath):
+        try:
+            os.remove(ev.FilePath)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error deleting file: unable to locate the file"
+            )
+
     Detail_Logs = (
-    f"Deleted EvidenceID={evidence_id}, CaseID={ev.CaseID}, "
-    f"SubmittingOfficerID={ev.SubmittingOfficerID}"
+        f"Deleted EvidenceID={evidence_id}, CaseID={ev.CaseID}, "
+        f"SubmittingOfficerID={ev.SubmittingOfficerID}"
     )
-    log_entry = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.delete, Details=Detail_Logs)
+    log_entry = AuditCreate(
+        UserID=current_user.UserID,
+        EventType=AuditEvent.delete,
+        Details=Detail_Logs
+    )
     create_log(log_entry, db)
+
     db.delete(ev)
     db.commit()

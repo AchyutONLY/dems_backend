@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     secret_key: str
     algorithm: str
     access_token_expire_minutes: int
+    sender_mail: str 
+    superadmin_mail:str 
+    app_password_mail:str 
+    app_scheduling_time: int
 
     class Config:
         env_file = ".env"
