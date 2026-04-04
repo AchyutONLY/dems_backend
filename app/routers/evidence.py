@@ -22,7 +22,7 @@ import os
 
 UPLOAD_DIR = "evidences"
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=EvidenceResponse)
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=EvidenceResponse) # inspector + officer
 def add_evidence(
     CaseID: int = Form(...),
     Description: str = Form(None),
@@ -166,7 +166,7 @@ def list_evidence(
 
 # --------------------------------------------------------------------------------------------------------------------------------------------------
 
-@router.put("/{case_id}/{evidence_id}", response_model=EvidenceResponse)
+@router.put("/{case_id}/{evidence_id}", response_model=EvidenceResponse) # officer + inspector
 def update_evidence(case_id:int,evidence_id: int, data: EvidenceUpdate, db: Session = Depends(get_db),current_user:User = Depends(oauth2.get_current_user)):
     case = db.query(Case).filter(Case.CaseID == case_id).first()
     if not case:
@@ -192,7 +192,7 @@ def update_evidence(case_id:int,evidence_id: int, data: EvidenceUpdate, db: Sess
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                              detail="Not your case")
 
-    if case.Status ==IsActive.inactive:
+    if case.Status == IsActive.inactive:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="This Case is Inactive Can't Update the Evidence"
@@ -217,7 +217,7 @@ def update_evidence(case_id:int,evidence_id: int, data: EvidenceUpdate, db: Sess
 
 # ------------------------------------------------------------------------------------------------------------------------------
 
-@router.delete("/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{evidence_id}", status_code=status.HTTP_204_NO_CONTENT) #admin
 def delete_evidence(
     evidence_id: int,
     db: Session = Depends(get_db),

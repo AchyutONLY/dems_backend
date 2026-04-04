@@ -13,15 +13,15 @@ from app.utils import create_log
 
 router = APIRouter(prefix="/custody", tags=["Custody"])
 #  ---------------------------------------------------------------------------------------------------------------------
-
+# Only inspectors can add custody records
 @router.post("/", response_model=CustodyResponse, status_code=status.HTTP_201_CREATED)
 def add_custody(
     data: CustodyCreate,
     db: Session = Depends(get_db),
     current_user=Depends(oauth2.get_current_user)
 ):
-    # Only admins or inspectors can add custody records
-    if current_user.Role == RoleEnum.officer:
+    
+    if current_user.Role != RoleEnum.inspector:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Not authorized to add custody records")
 
@@ -86,7 +86,7 @@ def get_record(
     return record
 
 #  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+# Only inspectors can update
 @router.put("/{record_id}", response_model=CustodyResponse)
 def update_record(
     record_id: int,
@@ -94,7 +94,7 @@ def update_record(
     db: Session = Depends(get_db),
     current_user=Depends(oauth2.get_current_user)
 ):
-    # Only admins or inspectors can update
+    
     if current_user.Role == RoleEnum.officer:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Not authorized to update custody records")
@@ -118,6 +118,7 @@ def update_record(
     return record
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# only admins
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_record(
     record_id: int,

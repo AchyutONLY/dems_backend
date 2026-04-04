@@ -256,7 +256,7 @@ def get_assigned_officer_Case_id(case_id: int, db: Session = Depends(get_db),
 
 
 
-@router.get("/assigned", response_model=list[CaseOut]) # All (Cases Assigned to itself)
+@router.get("/assigned", response_model=list[CaseOut]) # inspector(own case) + officer
 def get_case(db: Session = Depends(get_db),current_user:User = Depends(oauth2.get_current_user)):
     if current_user.Role == RoleEnum.admin:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND
