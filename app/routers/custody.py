@@ -95,7 +95,7 @@ def update_record(
     current_user=Depends(oauth2.get_current_user)
 ):
     
-    if current_user.Role == RoleEnum.officer:
+    if current_user.Role != RoleEnum.inspector:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Not authorized to update custody records")
 

@@ -61,6 +61,7 @@ class User(Base):
     Status=Column(String,default="ACTIVE")
     LastLogin=Column(TIMESTAMP(timezone=True))
     Password=Column(String,nullable=False)
+    Email = Column(String,nullable=False)
 
 
 class CaseAssignment(Base):

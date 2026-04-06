@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import User
-from app.schemas.users import UserCreate, UserUpdate, UserResponse,UserResponseCreate
+from app.schemas.users import UserCreate, UserUpdate, UserResponse,UserResponseCreate,ChangePasswordSchema
 from app.schemas.role import RoleEnum
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional
@@ -11,7 +11,7 @@ from app import utils
 from app.schemas.is_active import IsActive
 from app.schemas.audit_event import AuditEvent
 from app.schemas.audit import AuditCreate
-from app.utils import create_log
+from app.utils import create_log,generate_badge,generate_password,send_credentails,send_password_updated
 router = APIRouter(prefix="/users", tags=["Users"])
 
 # Only Admins
@@ -26,17 +26,18 @@ def create_user(user: UserCreate, db: Session = Depends(get_db),current_user:Use
             detail="Admins are allowed to add members"
         )
     try:
-        existing = db.query(User).filter(User.BadgeNumber == user.BadgeNumber).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="BadgeNumber already exists")
+        new_badge_number = generate_badge(user.Role,db)
+        new_password = generate_password()
+
 
         new_user = User(
             Name=user.Name,
             Role=user.Role,
-            BadgeNumber=user.BadgeNumber,
+            BadgeNumber=new_badge_number,
             Contact=user.Contact,
             Status=user.Status,
-            Password=utils.hash(user.Password)
+            Password=utils.hash(new_password),
+            Email = user.Email
         )
         
         db.add(new_user)
@@ -45,6 +46,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db),current_user:Use
         Detail_Logs = f"New User Created Name:{new_user.Name},Role:{new_user.Role},BadgeNum:{new_user.BadgeNumber}"
         logs = AuditCreate(UserID=current_user.UserID,EventType=AuditEvent.create,Details=Detail_Logs)
         create_log(logs,db)
+        send_credentails(new_user.Name,new_user.UserID,new_user.BadgeNumber,new_password,user.Email)
         return new_user
 
     except SQLAlchemyError as e:
@@ -100,19 +102,13 @@ def update_user(badge_num: str, data: UserUpdate, db: Session = Depends(get_db),
 
     update_data = data.model_dump(exclude_unset=True)
 
-    
-    
-    if "Password" in update_data:
-        update_data["Password"] = utils.hash(update_data.pop("Password"))
+    # removed the updating password
         
     change_details = []
     for field, value in update_data.items():
         old_value = getattr(user, field)
         setattr(user, field, value)
-        if field == "Password":
-            change_details.append(f"{field}: updated password")
-        else:
-            change_details.append(f"{field}: {old_value} -> {value}")
+        change_details.append(f"{field}: {old_value} -> {value}")
 
     try:
         db.commit()
@@ -162,6 +158,24 @@ def delete_user(badge_num: str, db: Session = Depends(get_db),current_user:User 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
                             detail="Database Error,Unable to delete the user")
     
+#  ------------------------------------------------------------------------------------------------------------------------------
 
+# Everyone
+@router.post("/change-password")
+def change_password(
+    password_data: ChangePasswordSchema,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(oauth2.get_current_user)
+):
+    if not utils.verify(password_data.oldPassword, current_user.Password):
+        raise HTTPException(status_code=400, detail="Incorrect password")
+    
+    if password_data.oldPassword == password_data.newPassword:
 
+        raise HTTPException(status_code=400, detail="New password cannot be same as old password")
 
+    current_user.Password = utils.hash(password_data.newPassword)
+
+    db.commit()
+    send_password_updated(current_user.Name,current_user.UserID,current_user.BadgeNumber,current_user.Email)
+    return {"message": "Password updated successfully"}
