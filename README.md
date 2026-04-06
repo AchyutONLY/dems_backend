@@ -564,7 +564,7 @@ Use this as a complete template:
 ```env
 DATABASE_HOSTNAME=localhost
 DATABASE_PORT=5433
-DATABASE_PASSWORD=dbproject
+DATABASE_PASSWORD=your_password
 DATABASE_NAME=fastapi
 DATABASE_USERNAME=your_name
 
