@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine,Base
 from app.routers import users, auth,cases,evidence,custody,audit
-from apscheduler.schedulers.background import BackgroundScheduler
+# from apscheduler.schedulers.background import BackgroundScheduler
 from .utils import check_missing_files
 app = FastAPI()
-scheduler = BackgroundScheduler()
+# scheduler = BackgroundScheduler()
 from datetime import datetime
 from .config import settings
 

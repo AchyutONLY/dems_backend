@@ -174,6 +174,7 @@ def delete_user(badge_num: str, db: Session = Depends(get_db),current_user:User 
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cant remove the current logged in Admin"
         )
+    
     # Prepare log details before deletion
     Detail_Logs = f"Deleted User BadgeNumber:{user.BadgeNumber}, Name:{user.Name}, Role:{user.Role}, Contact:{user.Contact}, Status:{user.Status}"
     logs = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.delete, Details=Detail_Logs)
