@@ -1,31 +1,52 @@
-version: "3.9"
-
 services:
-  api:
-    build: .
-    container_name: fastapi_app
+  postgres:
+    image: postgres:15
+    container_name: dems_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME:-dems_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-dems_password}
+      POSTGRES_DB: ${DATABASE_NAME:-dems_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME:-dems_user} -d ${DATABASE_NAME:-dems_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dems_backend
+    restart: unless-stopped
     env_file:
       - .env
+    environment:
+      DATABASE_HOSTNAME: postgres
+      DATABASE_PORT: 5432
     depends_on:
-      - db
+      postgres:
+        condition: service_healthy
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
-    restart: always
+      - ./evidences:/app/evidences
 
-  db:
-    image: postgres:15
-    container_name: postgres_db
-    restart: always
-    environment:
-      POSTGRES_USER: pashantraj
-      POSTGRES_PASSWORD: dbproject
-      POSTGRES_DB: fastapi
+  frontend:
+    build:
+      context: ./dems_frontend
+      dockerfile: Dockerfile
+    container_name: dems_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
     ports:
-      - "5433:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - "5173:5173"
 
 volumes:
   postgres_data:

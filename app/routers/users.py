@@ -11,7 +11,7 @@ from app import utils
 from app.schemas.is_active import IsActive
 from app.schemas.audit_event import AuditEvent
 from app.schemas.audit import AuditCreate
-from app.utils import create_log,generate_badge,generate_password,send_credentails,send_password_updated
+from app.utils import create_log,generate_badge,generate_password,send_credentials,send_password_updated
 router = APIRouter(prefix="/users", tags=["Users"])
 
 # Only Admins
@@ -46,7 +46,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db),current_user:Use
         Detail_Logs = f"New User Created Name:{new_user.Name},Role:{new_user.Role},BadgeNum:{new_user.BadgeNumber}"
         logs = AuditCreate(UserID=current_user.UserID,EventType=AuditEvent.create,Details=Detail_Logs)
         create_log(logs,db)
-        send_credentails(new_user.Name,new_user.UserID,new_user.BadgeNumber,new_password,user.Email)
+        send_credentials(new_user.Name,new_user.UserID,new_user.BadgeNumber,new_password,user.Email)
         return new_user
 
     except SQLAlchemyError as e:
@@ -174,6 +174,7 @@ def delete_user(badge_num: str, db: Session = Depends(get_db),current_user:User 
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cant remove the current logged in Admin"
         )
+    
     # Prepare log details before deletion
     Detail_Logs = f"Deleted User BadgeNumber:{user.BadgeNumber}, Name:{user.Name}, Role:{user.Role}, Contact:{user.Contact}, Status:{user.Status}"
     logs = AuditCreate(UserID=current_user.UserID, EventType=AuditEvent.delete, Details=Detail_Logs)

@@ -557,25 +557,25 @@ All roles can change their own password from Profile view.
 
 ## 11) Environment Configuration
 
-`.env.example` includes only DB/JWT basics, but app requires additional keys from `config.py`.
+`.env.example` includes all required keys from `config.py`.
 
 Use this as a complete template:
 
 ```env
-DATABASE_HOSTNAME=localhost
-DATABASE_PORT=5433
-DATABASE_PASSWORD=your_password
-DATABASE_NAME=fastapi
-DATABASE_USERNAME=your_name
+DATABASE_HOSTNAME=postgres
+DATABASE_PORT=5432
+DATABASE_PASSWORD=dems_password
+DATABASE_NAME=dems_db
+DATABASE_USERNAME=dems_user
 
 SECRET_KEY=replace_with_a_long_random_secret
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 
-sender_mail=your_sender@gmail.com
-superadmin_mail=your_admin@gmail.com
-app_password_mail=your_gmail_app_password
-app_scheduling_time=5
+SENDER_MAIL=your_sender@gmail.com
+SUPERADMIN_MAIL=your_admin@gmail.com
+APP_PASSWORD_MAIL=your_gmail_app_password
+APP_SCHEDULING_TIME=30
 ```
 
 ### Email notes
@@ -589,20 +589,24 @@ app_scheduling_time=5
 
 ## 12.1 Option A: Run with Docker Compose (recommended for quick local setup)
 
-From `dems_backend`:
+From project root:
 
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-This starts:
+This starts three services:
 
-- API on `http://localhost:8000`
-- PostgreSQL on `localhost:5433`
+- Frontend on `http://localhost:5173`
+- Backend API on `http://localhost:8000`
+- PostgreSQL on `localhost:5432`
 
 ## 12.2 Option B: Run backend directly
 
-From `dems_backend`:
+Use this mode if you are not using Docker for local development.
+
+Set DB variables in `.env` to your local PostgreSQL values (`DATABASE_HOSTNAME=localhost`, etc.), then:
 
 ```bash
 pip install -r requirements.txt
@@ -626,18 +630,22 @@ Frontend API base is hardcoded in `api.js`:
 
 ## 13) First Admin Bootstrap
 
-There is no dedicated seed command in the repo. You need one initial admin row in `users` before using full admin workflows.
+On backend startup, the system now checks for existing users with role `admin`.
 
-### Suggested bootstrap method
+- If at least one admin exists, nothing is created.
+- If no admin exists, one bootstrap admin is inserted automatically.
 
-1. Open Python shell in `dems_backend`.
-2. Generate hash via `app.utils.hash`.
-3. Insert admin row into PostgreSQL with that hash.
+### Bootstrap configuration (via `.env`)
 
-After initial admin exists:
+Use these variables (available in `.env.example`):
 
-- Login from UI
-- Create remaining users using `/users/`
+- `BOOTSTRAP_ADMIN_NAME`
+- `BOOTSTRAP_ADMIN_BADGE`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+- `BOOTSTRAP_ADMIN_EMAIL`
+- `BOOTSTRAP_ADMIN_CONTACT`
+
+After first successful startup/login, change this password immediately for security.
 
 ---
 

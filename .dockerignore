@@ -1,0 +1,12 @@
+venv
+__pycache__
+.env
+.git
+.gitignore
+node_modules
+dems_frontend/node_modules
+dems_frontend/dist
+*.pyc
+*.pyo
+*.pyd
+*.log

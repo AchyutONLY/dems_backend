@@ -57,12 +57,26 @@ const Loading = () => (
 const Empty = ({ icon = '📭', msg = 'No records found' }) => (
   <div className="empty">
     <div className="empty-icon">{icon}</div>
-    <div>{msg}</div>
+    <div className="empty-title">{msg}</div>
+    <div className="empty-subtitle">Try adjusting filters or adding a new record to get started.</div>
   </div>
 );
 
+const ThemeToggle = ({ isDark, onToggle, className = '' }) => (
+  <button
+    type="button"
+    className={`theme-toggle ${className}`.trim()}
+    onClick={onToggle}
+    aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+    title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+  >
+    <span>{isDark ? '☀' : '🌙'}</span>
+    <span>{isDark ? 'Light Mode' : 'Night Mode'}</span>
+  </button>
+);
+
 // ─── Login View ───────────────────────────────────────────────────────────────
-const LoginView = ({ onLogin }) => {
+const LoginView = ({ onLogin, isDarkMode, onToggleTheme }) => {
   const [badge, setBadge] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,9 +99,10 @@ const LoginView = ({ onLogin }) => {
   return (
     <div className="login-root">
       <div className="login-grid" />
+      <ThemeToggle isDark={isDarkMode} onToggle={onToggleTheme} className="theme-toggle-login" />
       <div className="login-card">
         <div className="login-logo">
-          <div className="login-logo-icon">🛡</div>
+          <img src="/logo.jpeg" alt="DEMS logo" className="login-logo-image" />
           <div>
             <div className="login-logo-text">DE<span>MS</span></div>
             <div className="login-subtitle">Digital Evidence Management System</div>
@@ -335,7 +350,6 @@ const CasesView = ({ token, user, onOpenCase }) => {
   const [editForm, setEditForm] = useState({});
   const isAdmin = user.Role === 'admin';
   const isInspector = user.Role === 'inspector';
-  const isOfficer = user.Role === 'officer';
   const setSuccessAuto = useAutoClear(setSuccess);
 
   const load = useCallback(async () => {
@@ -489,7 +503,7 @@ const CasesView = ({ token, user, onOpenCase }) => {
                           <button className="btn btn-amber btn-sm" onClick={() => handleClose(c)}>Close</button>
                         </>
                       )}
-                      {((isOfficer) || (isInspector && c.ActingInspectorID === user.UserID)) && c.Status === 'INACTIVE' && (
+                      {(isInspector && c.ActingInspectorID === user.UserID) && c.Status === 'INACTIVE' && (
                         <button className="btn btn-primary btn-sm" onClick={() => handleReactivate(c)}>Reactivate</button>
                       )}
                       {isAdmin && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>Delete</button>}
@@ -962,9 +976,8 @@ const CustodyTab = ({ token, user, caseData }) => {
 };
 
 // ─── Officers Tab (Acting Inspector of the case only) ─────────────────────────
-// BUG FIX: Backend endpoint GET /cases/assigned-officers/{case_id} checks
-// case.ActingInspectorID == current_user.UserID, so it rejects even admins.
-// Tab is now only shown to the acting inspector (isOwnCase check in CaseDetailView).
+// Backend endpoint checks case.ActingInspectorID == current_user.UserID.
+// Keep this tab inspector-only in the UI to avoid role mismatch/confusion.
 const OfficersTab = ({ token, user, caseData }) => {
   const [officers, setOfficers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -976,9 +989,8 @@ const OfficersTab = ({ token, user, caseData }) => {
   const [saving, setSaving] = useState(false);
   const setSuccessAuto = useAutoClear(setSuccess);
 
-  const isAdmin = user.Role === 'admin';
   const isOwnCase = user.Role === 'inspector' && caseData.ActingInspectorID === user.UserID;
-  const canView = isAdmin || isOwnCase;
+  const canView = isOwnCase;
   const caseActive = caseData.Status !== 'INACTIVE';
   const canManage = isOwnCase && caseActive;
 
@@ -1019,7 +1031,7 @@ const OfficersTab = ({ token, user, caseData }) => {
     return (
       <div className="empty">
         <div className="empty-icon">🔒</div>
-        <div>Only admin or the acting inspector can view assigned officers.</div>
+        <div>Only the acting inspector can view assigned officers.</div>
       </div>
     );
   }
@@ -1088,10 +1100,9 @@ const OfficersTab = ({ token, user, caseData }) => {
 // ─── Case Detail View ─────────────────────────────────────────────────────────
 const CaseDetailView = ({ token, user, caseData, onBack, onReactivate }) => {
   const [tab, setTab] = useState('evidence');
-  const isAdmin = user.Role === 'admin';
   const isInspector = user.Role === 'inspector';
   const isOwnCase = isInspector && caseData.ActingInspectorID === user.UserID;
-  const canViewOfficers = isAdmin || isOwnCase;
+  const canViewOfficers = isOwnCase;
 
   const tabs = [
     { id: 'evidence', label: '🗂 Evidence' },
@@ -1118,7 +1129,7 @@ const CaseDetailView = ({ token, user, caseData, onBack, onReactivate }) => {
           {caseData.Description && (
             <p style={{ marginTop: 10, fontSize: 13, color: 'var(--text-dim)' }}>{caseData.Description}</p>
           )}
-          {((user.Role === 'officer') || (isOwnCase)) && caseData.Status === 'INACTIVE' && (
+          {(isOwnCase) && caseData.Status === 'INACTIVE' && (
             <div style={{ marginTop: 12 }}>
               <button className="btn btn-primary btn-sm" onClick={() => onReactivate(caseData)}>
                 Reactivate Case
@@ -1147,6 +1158,8 @@ const AuditView = ({ token }) => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [userId, setUserId] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [limit, setLimit] = useState(100);
   const [skip, setSkip] = useState(0);
   const [err, setErr] = useState('');
@@ -1157,11 +1170,13 @@ const AuditView = ({ token }) => {
       const params = {};
       if (search) params.search = search;
       if (userId) params.user_id = userId;
+      if (fromDate) params.from_date = `${fromDate}T00:00:00`;
+      if (toDate) params.to_date = `${toDate}T23:59:59.999`;
       params.limit = String(limit);
       params.skip = String(skip);
       setLogs(await api.getAuditLogs(token, params));
     } catch (e) { setErr(e.message); } finally { setLoading(false); }
-  }, [token, search, userId, limit, skip]);
+  }, [token, search, userId, fromDate, toDate, limit, skip]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1180,6 +1195,22 @@ const AuditView = ({ token }) => {
           <div className="table-toolbar-left">
             <input className="search-input" placeholder="Search details…" value={search} onChange={e => setSearch(e.target.value)} />
             <input className="search-input" placeholder="Filter by User ID…" type="number" style={{ width: 160 }} value={userId} onChange={e => setUserId(e.target.value)} />
+            <input
+              className="search-input"
+              type="date"
+              style={{ width: 170 }}
+              value={fromDate}
+              onChange={e => setFromDate(e.target.value)}
+              title="From date (starts at midnight)"
+            />
+            <input
+              className="search-input"
+              type="date"
+              style={{ width: 170 }}
+              value={toDate}
+              onChange={e => setToDate(e.target.value)}
+              title="To date (ends at 23:59:59)"
+            />
             <input
               className="search-input"
               placeholder="Limit"
@@ -1313,9 +1344,11 @@ const DashboardView = ({ token, user, onOpenCase }) => {
 
   return (
     <div>
-      <div className="welcome-banner">
-        <h2>Welcome back, {user.Name.split(' ')[0]} 👋</h2>
-        <p>Logged in as <strong>{user.BadgeNumber}</strong> · Role: <strong>{user.Role}</strong></p>
+      <div className="page-header">
+        <div>
+          <div className="title">Welcome, {user.Name.split(' ')[0]}</div>
+          <div className="subtitle">Logged in as <strong>{user.BadgeNumber}</strong> · Role: <strong>{user.Role}</strong></div>
+        </div>
       </div>
       <div className="stats-grid">
         <div className="stat-card">
@@ -1455,6 +1488,13 @@ export default function App() {
   });
   const [view, setView] = useState('dashboard');
   const [openCase, setOpenCase] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('dems_theme') === 'dark');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    localStorage.setItem('dems_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   const handleLogin = (t, u) => {
     setToken(t); setUser(u);
@@ -1482,7 +1522,9 @@ export default function App() {
     }
   };
 
-  if (!token || !user) return <LoginView onLogin={handleLogin} />;
+  if (!token || !user) {
+    return <LoginView onLogin={handleLogin} isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode((v) => !v)} />;
+  }
 
   const navItems = NAV(user.Role);
   const VIEW_TITLES = {
@@ -1497,11 +1539,11 @@ export default function App() {
   const [title, sub] = VIEW_TITLES[view] || ['DEMS', ''];
 
   return (
-    <div className="layout">
+    <div className={`layout${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
       <aside className="sidebar">
         <div className="sidebar-header">
           <div className="sidebar-brand">
-            <div className="sidebar-brand-icon">🛡</div>
+            <img src="/logo.jpeg" alt="DEMS logo" className="sidebar-brand-image" />
             <div className="sidebar-brand-name">DE<span>MS</span></div>
           </div>
           <div className="sidebar-version">v1.0 · Secure</div>
@@ -1512,15 +1554,27 @@ export default function App() {
           <RoleBadge role={user.Role} />
         </div>
         <nav className="sidebar-nav">
-          <div className="nav-section">Navigation</div>
+          <div className="nav-section-row">
+            <div className="nav-section">Navigation</div>
+            <button
+              className="btn btn-ghost btn-sm sidebar-toggle"
+              type="button"
+              onClick={() => setSidebarCollapsed((s) => !s)}
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {sidebarCollapsed ? '☰' : '☷'}
+            </button>
+          </div>
           {navItems.map(item => (
             <div
               key={item.id}
               className={`nav-item${view === item.id || (view === 'case-detail' && item.id === 'cases') ? ' active' : ''}`}
               onClick={() => handleNav(item.id)}
+              title={sidebarCollapsed ? item.label : ''}
             >
               <span className="nav-item-icon">{item.icon}</span>
-              {item.label}
+              <span className="nav-item-label">{item.label}</span>
             </div>
           ))}
         </nav>
@@ -1538,9 +1592,11 @@ export default function App() {
             {sub && <div className="topbar-sub">{sub}</div>}
           </div>
           <div className="topbar-actions">
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--mono)' }}>
+            <ThemeToggle isDark={isDarkMode} onToggle={() => setIsDarkMode((v) => !v)} className="theme-toggle-main" />
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)', fontFamily: 'var(--mono)' }}>
               {new Date().toLocaleDateString('en-IN', { dateStyle: 'medium' })}
             </span>
+            <div className="profile-circle" title={user.Name} style={{ marginLeft: 8 }}>{user.Name ? user.Name.split(' ')[0][0] : 'U'}</div>
           </div>
         </div>
 
