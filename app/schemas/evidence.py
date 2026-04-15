@@ -6,7 +6,7 @@ class EvidenceBase(BaseModel):
     Description: str | None = None
     EvidenceType: str | None = None
     SourceOrigin: str | None = None
-    
+    DateCollected: datetime | None = None
 
 class EvidenceCreate(EvidenceBase):
     pass

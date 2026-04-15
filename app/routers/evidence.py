@@ -12,6 +12,7 @@ from app.schemas.audit_event import AuditEvent
 from app.schemas.audit import AuditCreate
 from app.utils import create_log
 import os
+from urllib.parse import quote
 
 router = APIRouter(prefix="/evidence", tags=["Evidence"])
 
@@ -128,10 +129,12 @@ def download_evidence(
     )
     create_log(log_entry, db)
 
+    file_basename = os.path.basename(ev.FilePath)
+    print("Serving file:", ev.FilePath)
+    print("Filename:", file_basename)
     return FileResponse(
         path=ev.FilePath,
-        filename=os.path.basename(ev.FilePath),
-        media_type="application/octet-stream"
+        filename=file_basename
     )
 
 
