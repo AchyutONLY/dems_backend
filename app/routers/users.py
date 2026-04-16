@@ -161,6 +161,11 @@ def delete_user(badge_num: str, db: Session = Depends(get_db),current_user:User 
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admins are allowed to delete a members information"
         )
+    if(badge_num == "ADM00001"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete the default Admin account"
+        )
 
     user = db.query(User).filter(User.BadgeNumber == badge_num).first()
     
